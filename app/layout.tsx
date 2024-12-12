@@ -38,6 +38,11 @@ export default function RootLayout({
                     Text to Speech
                   </Link>
                 </li>
+                <li className="nav-item">
+                  <Link href="/text-to-speech-ai" className="nav-link text-decoration-none text-reset">
+                    Text to Speech AI
+                  </Link>
+                </li>
               </ul>
             </aside>
 
