@@ -4,63 +4,101 @@ import { useState, useCallback } from "react";
 
 export default function Home() {
     const [text, setText] = useState("");
-    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [apiKey, setApiKey] = useState("");
+    const [voice, setVoice] = useState("21m00Tcm4TlvDq8ikWAM");
+    const [isLoading, setIsLoading] = useState(false);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
-    const speak = useCallback(() => {
-        // Check browser support
-        if ('speechSynthesis' in window) {
-            // Stop previous speech
-            window.speechSynthesis.cancel();
+    const voices = [
+        { id: "21m00Tcm4TlvDq8ikWAM", name: "Adam" },
+        { id: "2EiwWnXFnvU5mMDegDb5", name: "Domi" },
+        { id: "AZnzlk1XvdvUeBnXmlld", name: "Charlie" },
+        { id: "EXAVITQu4vr4xnSDxMaL", name: "Rachel" },
+    ];
 
-            // Create speech synthesis object
-            const utterance = new SpeechSynthesisUtterance(text);
-            
-            // Select voice
-            const voices = window.speechSynthesis.getVoices();
-            
-            // Try to find English voice (prioritize US English)
-            const englishVoice = voices.find(
-                voice => voice.lang === 'en-US' || 
-                         voice.lang.startsWith('en-') ||
-                         voice.name.includes('English')
-            );
+    const generateSpeech = async () => {
+        if (!text.trim()) {
+            alert("Please enter text to synthesize");
+            return;
+        }
 
-            if (englishVoice) {
-                utterance.voice = englishVoice;
+        if (!apiKey) {
+            alert("Please enter your ElevenLabs API Key");
+            return;
+        }
+
+        setIsLoading(true);
+        setAudioUrl(null);
+
+        try {
+            const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voice, {
+                method: "POST",
+                headers: {
+                    "Accept": "audio/mpeg",
+                    "Content-Type": "application/json",
+                    "xi-api-key": apiKey
+                },
+                body: JSON.stringify({
+                    text: text,
+                    model_id: "eleven_monolingual_v1",
+                    voice_settings: {
+                        stability: 0.5,
+                        similarity_boost: 0.5
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API request failed: ${errorText}`);
             }
 
-            // Set parameters
-            utterance.rate = 1.0;  // Speech rate
-            utterance.pitch = 1.0; // Pitch
-            utterance.volume = 1.0; // Volume
-
-            // Event listeners
-            utterance.onstart = () => setIsSpeaking(true);
-            utterance.onend = () => setIsSpeaking(false);
-            utterance.onerror = (event) => {
-                console.error('Speech synthesis error', event);
-                setIsSpeaking(false);
-            };
-
-            // Start speech synthesis
-            window.speechSynthesis.speak(utterance);
-        } else {
-            alert("Your browser does not support text-to-speech");
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            setAudioUrl(audioUrl);
+        } catch (error) {
+            console.error("Speech synthesis error:", error);
+            alert("Failed to generate speech: " + (error instanceof Error ? error.message : "Unknown error"));
+        } finally {
+            setIsLoading(false);
         }
-    }, [text]);
+    };
 
-    // Initialize by loading available voices
-    const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        console.log("Available voices:", voices.map(v => `${v.name} (${v.lang})`));
+    const playAudio = () => {
+        if (audioUrl) {
+            const audio = new Audio(audioUrl);
+            audio.play();
+        }
     };
 
     return (
-    <>
-        <h2 className="border-bottom p-3 fs-5">Text to Speech</h2>
+    <div className="container">
+        <h2 className="border-bottom p-3 fs-5">ElevenLabs Text to Speech</h2>
 
-        {/* Text input area */}
+        {/* API Key Input */}
         <div className="m-4">
+            <input 
+                type="password"
+                className="form-control mb-3"
+                placeholder="Enter ElevenLabs API Key"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+            />
+
+            {/* Voice Selection */}
+            <select 
+                className="form-select mb-3"
+                value={voice}
+                onChange={(e) => setVoice(e.target.value)}
+            >
+                {voices.map((v) => (
+                    <option key={v.id} value={v.id}>
+                        {v.name}
+                    </option>
+                ))}
+            </select>
+
+            {/* Text Input */}
             <textarea
                 id="textInput"
                 className="form-control"
@@ -71,17 +109,35 @@ export default function Home() {
             ></textarea>
         </div>
 
-        {/* Control buttons */}
+        {/* Control Buttons */}
         <div className="d-flex">
             <button 
                 className="btn btn-primary mt-3 me-4 ms-auto" 
-                onClick={speak}
-                disabled={!text.trim() || isSpeaking}
+                onClick={generateSpeech}
+                disabled={!text.trim() || !apiKey || isLoading}
             >
-                {isSpeaking ? 'Speaking...' : 'Generate Speech'}
+                {isLoading ? 'Generating...' : 'Generate Speech'}
             </button>
-            
+            {audioUrl && (
+                <button 
+                    className="btn btn-success mt-3 me-4" 
+                    onClick={playAudio}
+                >
+                    Play Audio
+                </button>
+            )}
         </div>
-    </>
+
+        {/* Audio Player (Optional) */}
+        {audioUrl && (
+            <div className="m-4">
+                <audio 
+                    src={audioUrl} 
+                    controls 
+                    className="w-100"
+                ></audio>
+            </div>
+        )}
+    </div>
     );
 }

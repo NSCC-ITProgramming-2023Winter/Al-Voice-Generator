@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-
+//  Web Speech API, specifically the SpeechSynthesis interface,
 export default function Home() {
     const [text, setText] = useState("");
     const [isSpeaking, setIsSpeaking] = useState(false);
